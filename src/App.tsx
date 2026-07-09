@@ -13,6 +13,7 @@ import { Catalog } from './screens/Catalog'
 import { CreateCharacter } from './screens/CreateCharacter'
 import { Pvp } from './screens/Pvp'
 import { MascotWidget } from './screens/MascotWidget'
+import { HowToPlay } from './screens/HowToPlay'
 
 /** Tutoriais dos treinadores — squad de 1 com mismatch forçado, pra lição doer no bolso. */
 const FORCED: Record<string, Harness> = {
@@ -204,6 +205,7 @@ export default function App() {
               set({ screen: 'battle' })
             }}>🏁 aceitar a corrida de eficiência</button>
           )}
+          <button className="btn ghost small" onClick={() => { chiptune.unlock(); set({ screen: 'howto' }) }}>📖 como jogar</button>
           {gs.created && <button className="btn ghost small" onClick={() => { clearSave(); setGs({ ...initialState, screen: 'create' }) }}>novo jogo</button>}
           <span className="press">PRESS START</span>
         </div>
@@ -238,6 +240,7 @@ export default function App() {
         <span className="badges">{[1, 2, 3, 4, 5, 6].map((c) => <span key={c} title={`Ginásio ${c}`} style={{ opacity: gs.badges.includes(c) ? 1 : 0.2 }}>◆</span>)}</span>
         <button className="btn ghost small" onClick={() => set({ screen: 'squad' })}>⚔ SQUAD</button>
         <button className="btn ghost small" onClick={() => set({ screen: 'pvp' })}>🌐 PvP</button>
+        <button className="btn ghost small" onClick={() => set({ screen: 'howto' })} title="como jogar">📖</button>
         <button className="btn ghost small" onClick={() => chiptune.toggleMute()} title="som">🔊</button>
         <span className="spacer" />
         <span className="form-tag">{form}</span>
@@ -301,6 +304,10 @@ export default function App() {
       {gs.screen === 'pvp' && (
         <Pvp party={gs.party} playerName={gs.playerName} rival={rivalSquad} joinCode={roomCode}
           onDone={() => { setRivalSquad(null); setRoomCode(null); history.replaceState(null, '', location.pathname); set({ screen: 'world' }) }} />
+      )}
+
+      {gs.screen === 'howto' && (
+        <HowToPlay onBack={() => set({ screen: gs.created ? 'world' : 'title' })} />
       )}
 
       {gs.screen === 'finale' && (
