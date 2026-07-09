@@ -6,4 +6,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ command }) => ({
   plugins: [react()],
   base: command === 'build' ? '/game/' : '/',
+  server: {
+    // dev: WS do multiplayer roda no server local (npm run server)
+    proxy: { '/ws': { target: 'ws://localhost:8790', ws: true } },
+  },
 }))

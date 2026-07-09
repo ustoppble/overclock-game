@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { missionById, taskAsMission } from './data/missions'
 import { gradeFor, GRADE_XP, GRADE_REWARD, type Harness } from './engine/battle'
 import { parseHashChallenges, raceChallengeUrl, type SquadCode, type RaceCode } from './engine/pvp'
+import { parseRoomHash } from './engine/pvpLive'
 import { initialState, loadGame, saveGame, clearSave, formForXp, xpProgress, type GameState } from './state'
 import { PhaserHost } from './phaser/PhaserHost'
 import { bridge, type BattleParams, type BattleEnd } from './phaser/bridge'
@@ -32,6 +33,7 @@ export default function App() {
   const [pendingTrainer, setPendingTrainer] = useState<'x' | 'y' | null>(null)
   const [raceRun, setRaceRun] = useState<RaceCode | null>(null)
   const [rivalSquad, setRivalSquad] = useState<SquadCode | null>(null)
+  const [roomCode, setRoomCode] = useState<string | null>(null)
   const [raceBanner, setRaceBanner] = useState<RaceCode | null>(null)
   const [raceShare, setRaceShare] = useState<string | null>(null)
   const gsRef = useRef(gs)
@@ -92,6 +94,7 @@ export default function App() {
     const { squad, race } = parseHashChallenges()
     if (squad) setRivalSquad(squad)
     if (race) setRaceBanner(race)
+    setRoomCode(parseRoomHash())
   }, [])
 
   // ── navegação 100% teclado nos menus React ────────────────────────────────
@@ -192,7 +195,8 @@ export default function App() {
           <p className="tag">Você acordou numa IDE infinita. Tasks selvagens devoram tokens no mato alto; seis ginásios guardam o segredo do <b>HARNESS</b>. Você é o orquestrador — nunca lute. Monte o squad certo e despache.</p>
           {raceBanner && <p className="tag" style={{ color: '#fbbf24' }}>🏁 DESAFIO: {raceBanner.n} fez "{missionById(raceBanner.m).name}" com {raceBanner.s} tokens (nota {raceBanner.g}). Consegue melhor?</p>}
           {rivalSquad && <p className="tag" style={{ color: '#ef4444' }}>⚔️ {rivalSquad.n} te desafiou pra um squad vs squad!</p>}
-          <button className="btn" onClick={() => { chiptune.unlock(); set({ screen: rivalSquad && gs.created ? 'pvp' : gs.created ? 'world' : 'create' }) }}>▶ {gs.created ? 'CONTINUAR' : 'CRIAR PERSONAGEM'}</button>
+          {roomCode && <p className="tag" style={{ color: '#ef4444' }}>🔴 Sala de duelo AO VIVO: {roomCode} — entre pra duelar em tempo real!</p>}
+          <button className="btn" onClick={() => { chiptune.unlock(); set({ screen: (rivalSquad || roomCode) && gs.created ? 'pvp' : gs.created ? 'world' : 'create' }) }}>▶ {gs.created ? 'CONTINUAR' : 'CRIAR PERSONAGEM'}</button>
           {raceBanner && (
             <button className="btn ghost small" onClick={() => {
               chiptune.unlock(); setRaceRun(raceBanner)
@@ -216,7 +220,7 @@ export default function App() {
             chiptune.confirm()
             setGs((s) => ({
               ...s, playerName: name, clockColor: color, created: true,
-              ownedAgents: [starter.agentId], party: [starter], screen: 'world',
+              ownedAgents: [starter.agentId], party: [starter], screen: roomCode ? 'pvp' : 'world',
             }))
           }} />
         </div>
@@ -295,7 +299,8 @@ export default function App() {
       )}
 
       {gs.screen === 'pvp' && (
-        <Pvp party={gs.party} playerName={gs.playerName} rival={rivalSquad} onDone={() => { setRivalSquad(null); set({ screen: 'world' }) }} />
+        <Pvp party={gs.party} playerName={gs.playerName} rival={rivalSquad} joinCode={roomCode}
+          onDone={() => { setRivalSquad(null); setRoomCode(null); history.replaceState(null, '', location.pathname); set({ screen: 'world' }) }} />
       )}
 
       {gs.screen === 'finale' && (
