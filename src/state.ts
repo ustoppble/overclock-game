@@ -6,7 +6,7 @@ export interface Recipe { name: string; harness: Harness }
 
 export type Screen =
   | 'title' | 'create' | 'world' | 'battle' | 'squad'
-  | 'catalog' | 'pvp'
+  | 'catalog' | 'pvp' | 'howto'
   | 'victory' | 'gameover' | 'finale'
 
 export interface GameState {
@@ -69,7 +69,7 @@ export function xpProgress(xp: number): { form: FormId; pct: number } {
 }
 
 const SAVE_KEY = 'overclock-mon-save-v2'
-const TRANSIENT: Screen[] = ['battle', 'squad', 'victory', 'gameover', 'catalog', 'pvp']
+const TRANSIENT: Screen[] = ['battle', 'squad', 'victory', 'gameover', 'catalog', 'pvp', 'howto']
 
 export function saveGame(s: GameState) {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)) } catch { /* quota */ }
