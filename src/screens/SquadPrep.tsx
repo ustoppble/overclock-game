@@ -16,6 +16,8 @@ interface Props {
   extraSkills: Record<string, string[]>
   tokens: number
   initialParty: Harness[]
+  /** cor do jogador — tinge os sprites do squad */
+  clockColor?: string | null
   onStart: (party: Harness[]) => void
   onBack: () => void
 }
@@ -27,7 +29,7 @@ function defaultHarness(agentId: string, models: string[], _extra: Record<string
   return { agentId, modelId: models[models.length - 1], effort: 'medium', skillIds: skills }
 }
 
-export function SquadPrep({ mission, ownedAgents, unlockedModels, extraSkills, tokens, initialParty, onStart, onBack }: Props) {
+export function SquadPrep({ mission, ownedAgents, unlockedModels, extraSkills, tokens, initialParty, clockColor = null, onStart, onBack }: Props) {
   const [party, setParty] = useState<Harness[]>(initialParty.filter((h) => ownedAgents.includes(h.agentId)).slice(0, 4))
 
   const inParty = (id: string) => party.some((h) => h.agentId === id)
@@ -73,7 +75,7 @@ export function SquadPrep({ mission, ownedAgents, unlockedModels, extraSkills, t
           return (
             <div className="member-card" key={h.agentId}>
               <div className="member-head">
-                <PixelSprite seed={`agent-${a.id}`} palette={ROLE_PALETTES[a.role]} size={44} animate={false} />
+                <PixelSprite seed={`agent-${a.id}`} palette={ROLE_PALETTES[a.role]} size={44} animate={false} tint={inParty(a.id) ? clockColor : null} />
                 <div className="member-id">
                   <b>{a.name}</b>
                   <small>{a.role} · {actionCost(h)} tok/ação</small>

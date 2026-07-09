@@ -12,6 +12,12 @@ const COLORS: { hex: string | null; name: string }[] = [
   { hex: '#c084fc', name: 'roxo' },
   { hex: '#ef4444', name: 'rubro' },
   { hex: '#fbbf24', name: 'dourado' },
+  { hex: '#2dd4bf', name: 'ciano' },
+  { hex: '#f472b6', name: 'rosa' },
+  { hex: '#a3e635', name: 'lima' },
+  { hex: '#94a3b8', name: 'aço' },
+  { hex: '#f8fafc', name: 'branco' },
+  { hex: '#7c3aed', name: 'violeta' },
 ]
 
 const STARTERS = [
@@ -53,7 +59,7 @@ export function CreateCharacter({ onDone }: Props) {
           />
         </div>
         <div>
-          <h3 className="slot-h">Cor do seu clockinho</h3>
+          <h3 className="slot-h">Cor do seu Overclock — tinge você E seu squad</h3>
           <div className="chips">
             {COLORS.map((c) => (
               <button key={c.name} className={`chip swatch ${color === c.hex ? 'sel' : ''}`} onClick={() => setColor(c.hex)}>
@@ -68,7 +74,7 @@ export function CreateCharacter({ onDone }: Props) {
               const a = agentById(id)
               return (
                 <button key={id} className={`starter-card ${starter === id ? 'sel' : ''}`} onClick={() => setStarter(id)}>
-                  <PixelSprite seed={`agent-${a.id}`} palette={ROLE_PALETTES[a.role]} size={64} animate={starter === id} />
+                  <PixelSprite seed={`agent-${a.id}`} palette={ROLE_PALETTES[a.role]} size={64} animate={starter === id} tint={color} />
                   <b>{a.name}</b>
                   <span className="role">{a.role}</span>
                   <small>{pitch}</small>

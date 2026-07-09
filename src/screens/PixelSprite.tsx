@@ -77,8 +77,18 @@ function authoredFor(palette: Palette): AuthoredSprite | null {
   return null
 }
 
-export function PixelSprite({ seed, palette, size = 96, boss = false, flip = false, animate = true }: {
-  seed: string; palette: Palette; size?: number; boss?: boolean; flip?: boolean; animate?: boolean
+/** Overlay de cor do JOGADOR por cima do sprite — preserva forma/sombras, muda identidade. */
+function applyTint(ctx: CanvasRenderingContext2D, tint: string, size: number) {
+  ctx.save()
+  ctx.globalCompositeOperation = 'source-atop'
+  ctx.globalAlpha = 0.42
+  ctx.fillStyle = tint
+  ctx.fillRect(0, 0, size, size)
+  ctx.restore()
+}
+
+export function PixelSprite({ seed, palette, size = 96, boss = false, flip = false, animate = true, tint = null }: {
+  seed: string; palette: Palette; size?: number; boss?: boolean; flip?: boolean; animate?: boolean; tint?: string | null
 }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
@@ -103,6 +113,7 @@ export function PixelSprite({ seed, palette, size = 96, boss = false, flip = fal
         } else {
           drawSprite(ctx, authored, 0, bob, size, { flip })
         }
+        if (tint) applyTint(ctx, tint, size)
         frame++
         if (animate) raf = requestAnimationFrame(drawAuthored)
       }
@@ -136,11 +147,12 @@ export function PixelSprite({ seed, palette, size = 96, boss = false, flip = fal
         }
       }
       ctx.restore()
+      if (tint) applyTint(ctx, tint, size)
       frame++
       if (animate) raf = requestAnimationFrame(draw)
     }
     draw()
     return () => cancelAnimationFrame(raf)
-  }, [seed, palette, size, boss, flip, animate])
+  }, [seed, palette, size, boss, flip, animate, tint])
   return <canvas ref={ref} width={size} height={size} style={{ imageRendering: 'pixelated', width: size, height: size }} />
 }
