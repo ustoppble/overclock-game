@@ -255,7 +255,7 @@ export default function App() {
         <SquadPrep
           mission={null}
           ownedAgents={gs.ownedAgents} unlockedModels={gs.unlockedModels}
-          extraSkills={gs.extraSkills} tokens={gs.tokens} initialParty={gs.party}
+          extraSkills={gs.extraSkills} tokens={gs.tokens} initialParty={gs.party} clockColor={gs.clockColor}
           onStart={(party) => setGs((s) => ({ ...s, party, screen: 'world' }))}
           onBack={() => set({ screen: 'world' })}
         />
@@ -302,7 +302,7 @@ export default function App() {
       )}
 
       {gs.screen === 'pvp' && (
-        <Pvp party={gs.party} playerName={gs.playerName} rival={rivalSquad} joinCode={roomCode}
+        <Pvp party={gs.party} playerName={gs.playerName} rival={rivalSquad} joinCode={roomCode} clockColor={gs.clockColor}
           onDone={() => { setRivalSquad(null); setRoomCode(null); history.replaceState(null, '', location.pathname); set({ screen: 'world' }) }} />
       )}
 

@@ -12,10 +12,11 @@ interface Props {
   playerName: string
   rival: SquadCode | null
   joinCode?: string | null
+  clockColor?: string | null
   onDone: () => void
 }
 
-export function Pvp({ party, playerName, rival: initialRival, joinCode, onDone }: Props) {
+export function Pvp({ party, playerName, rival: initialRival, joinCode, clockColor = null, onDone }: Props) {
   // link de sala ou nada pendente → abre direto no AO VIVO; desafio por link → aba assíncrona
   const [mode, setMode] = useState<'live' | 'link'>(initialRival ? 'link' : 'live')
   const [rival, setRival] = useState<SquadCode | null>(initialRival)
@@ -33,7 +34,7 @@ export function Pvp({ party, playerName, rival: initialRival, joinCode, onDone }
     if (d) { setRival(d); setResult(null) }
   }
 
-  const SquadCard = ({ name, squad, tag }: { name: string; squad: Harness[]; tag: string }) => (
+  const SquadCard = ({ name, squad, tag, tint = null }: { name: string; squad: Harness[]; tag: string; tint?: string | null }) => (
     <div className="cat-item">
       <div className="head">{name} <span className="role">{tag}</span></div>
       <div className="chips">
@@ -41,7 +42,7 @@ export function Pvp({ party, playerName, rival: initialRival, joinCode, onDone }
           const a = agentById(h.agentId)
           return (
             <span key={h.agentId} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <PixelSprite seed={`agent-${a.id}`} palette={ROLE_PALETTES[a.role]} size={26} animate={false} />
+              <PixelSprite seed={`agent-${a.id}`} palette={ROLE_PALETTES[a.role]} size={26} animate={false} tint={tint} />
               {a.name} <small>{MODELS.find((m) => m.id === h.modelId)?.name}·{h.effort}</small>
             </span>
           )
@@ -73,7 +74,7 @@ export function Pvp({ party, playerName, rival: initialRival, joinCode, onDone }
       <h2>🌐 PvP — Squad vs Squad</h2>
       <p className="sub">Como no LMArena: 7 domínios sorteados, cada squad manda o melhor harness por rodada. Composição diversa (scout+executor+reviewer) dá bônus — squad só de executor caro PERDE.</p>
 
-      <SquadCard name={playerName} squad={party} tag="seu squad" />
+      <SquadCard name={playerName} squad={party} tag="seu squad" tint={clockColor} />
       <div style={{ display: 'flex', gap: 8, margin: '10px 0', flexWrap: 'wrap' }}>
         <button className="btn small" onClick={copy}>{copied ? '✓ copiado!' : '🔗 copiar link de desafio'}</button>
         <span className="sub" style={{ margin: 0, alignSelf: 'center' }}>manda no grupo — quem abrir enfrenta este squad</span>
