@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "PORT=8790 DIST_DIR=./dist node server/server.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

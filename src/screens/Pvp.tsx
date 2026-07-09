@@ -5,15 +5,19 @@ import { MODELS } from '../data/models'
 import type { Harness } from '../engine/battle'
 import { simulatePvp, squadChallengeUrl, decodeSquad, type PvpResult, type SquadCode } from '../engine/pvp'
 import { PixelSprite, ROLE_PALETTES } from './PixelSprite'
+import { PvpLive } from './PvpLive'
 
 interface Props {
   party: Harness[]
   playerName: string
   rival: SquadCode | null
+  joinCode?: string | null
   onDone: () => void
 }
 
-export function Pvp({ party, playerName, rival: initialRival, onDone }: Props) {
+export function Pvp({ party, playerName, rival: initialRival, joinCode, onDone }: Props) {
+  // link de sala ou nada pendente → abre direto no AO VIVO; desafio por link → aba assíncrona
+  const [mode, setMode] = useState<'live' | 'link'>(initialRival ? 'link' : 'live')
   const [rival, setRival] = useState<SquadCode | null>(initialRival)
   const [paste, setPaste] = useState('')
   const [result, setResult] = useState<PvpResult | null>(null)
@@ -46,7 +50,25 @@ export function Pvp({ party, playerName, rival: initialRival, onDone }: Props) {
     </div>
   )
 
+  const tabs = (
+    <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+      <button className={`btn small ${mode === 'live' ? '' : 'ghost'}`} onClick={() => setMode('live')}>🔴 AO VIVO</button>
+      <button className={`btn small ${mode === 'link' ? '' : 'ghost'}`} onClick={() => setMode('link')}>🔗 por link</button>
+    </div>
+  )
+
+  if (mode === 'live') {
+    return (
+      <div>
+        {tabs}
+        <PvpLive party={party} playerName={playerName} joinCode={joinCode} onBack={onDone} />
+      </div>
+    )
+  }
+
   return (
+    <div>
+      {tabs}
     <div className="panel">
       <h2>🌐 PvP — Squad vs Squad</h2>
       <p className="sub">Como no LMArena: 7 domínios sorteados, cada squad manda o melhor harness por rodada. Composição diversa (scout+executor+reviewer) dá bônus — squad só de executor caro PERDE.</p>
@@ -103,6 +125,7 @@ export function Pvp({ party, playerName, rival: initialRival, onDone }: Props) {
       )}
 
       {!result && <div style={{ marginTop: 14 }}><button className="btn ghost" onClick={onDone}>voltar ao mundo</button></div>}
+    </div>
     </div>
   )
 }
