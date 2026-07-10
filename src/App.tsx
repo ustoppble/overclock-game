@@ -271,7 +271,6 @@ export default function App() {
         <span className="tokens">💰 {gs.tokens} tok</span>
         <span className="badges">{[1, 2, 3, 4, 5, 6].map((c) => <span key={c} title={`Ginásio ${c}`} style={{ opacity: gs.badges.includes(c) ? 1 : 0.2 }}>◆</span>)}</span>
         <button className="btn ghost small" onClick={() => set({ screen: 'squad' })}>⚔ SQUAD</button>
-        <button className="btn ghost small" onClick={() => set({ screen: 'pvp' })}>🌐 PvP</button>
         <button className="btn ghost small" onClick={() => set({ screen: 'howto' })} title="como jogar">📖</button>
         <button className="btn ghost small" onClick={() => chiptune.toggleMute()} title="som">🔊</button>
         <span className="spacer" />
