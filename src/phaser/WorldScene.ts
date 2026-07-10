@@ -411,7 +411,12 @@ export class WorldScene extends Phaser.Scene {
       return
     }
     if (ch === 'C') { chiptune.confirm(); this.toBattleFx(() => bridge.emit('catalog')); return }
-    if (ch === 'A') { chiptune.confirm(); this.toBattleFx(() => bridge.emit('arena')); return }
+    if (ch === 'A') {
+      // v1: arena por sala fechada (bugando) — duelo é pelo mundo: X no player
+      chiptune.back()
+      this.showToast('🔒 ARENA — EM BREVE · desafie players no mapa com X')
+      return
+    }
     if (ch === 'g' && Math.random() < ENCOUNTER_RATE) {
       const pool = encounterPool(this.px, this.py)
       const taskId = pool[Math.floor(Math.random() * pool.length)]
