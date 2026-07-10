@@ -10,11 +10,11 @@ const SUPABASE_URL = 'https://atrqyavpbjwpjsewwcrj.supabase.co'
 // anon key: pública por design (vai no bundle); RLS é quem protege as linhas
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0cnF5YXZwYmp3cGpzZXd3Y3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MTQ5NzQsImV4cCI6MjA5MjA5MDk3NH0.k-EkfVZKh9ikF-BYxElRDrrH1UJ0WS4u81IM2fFrJb8'
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const SAVED_AT_KEY = 'overclock-mon-save-v2:at'
 
-async function ensureSession(): Promise<string | null> {
+export async function ensureSession(): Promise<string | null> {
   const { data } = await supabase.auth.getSession()
   if (data.session) return data.session.user.id
   const { data: anon, error } = await supabase.auth.signInAnonymously()

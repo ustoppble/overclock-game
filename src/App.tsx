@@ -5,6 +5,7 @@ import { parseHashChallenges, raceChallengeUrl, type SquadCode, type RaceCode } 
 import { parseRoomHash } from './engine/pvpLive'
 import { initialState, loadGame, saveGame, clearSave, normalizeSave, formForXp, xpProgress, type GameState } from './state'
 import { pullCloudSave, queueCloudPush } from './engine/cloudSave'
+import { track } from './engine/analytics'
 import { PhaserHost } from './phaser/PhaserHost'
 import { bridge, type BattleParams, type BattleEnd } from './phaser/bridge'
 import { chiptune } from './audio/chiptune'
@@ -47,6 +48,13 @@ export default function App() {
   raceRef.current = raceRun
 
   useEffect(() => { saveGame(gs); queueCloudPush(gs) }, [gs])
+
+  // telemetria: 1 evento por sessão + 1 por troca de tela
+  useEffect(() => {
+    const s = gsRef.current
+    track('session_start', { form: formForXp(s.xp), xp: s.xp, tokens: s.tokens, badges: s.badges.length, created: s.created })
+  }, [])
+  useEffect(() => { track('screen', { to: gs.screen }) }, [gs.screen])
 
   // pull do save em nuvem no boot — nuvem só vence se for mais nova que o local
   useEffect(() => {
@@ -191,6 +199,7 @@ export default function App() {
       setGs((s) => ({ ...s, tutorialsDone: [...new Set([...s.tutorialsDone, trainer])], lastGrade: grade, lastSpent: end.spent, screen: 'victory' }))
       return
     }
+    track('battle_end', { outcome: end.outcome, spent: end.spent, gymId: end.gymId ?? null, tutorial: !!end.tutorial })
     if (end.outcome === 'won') {
       const grade = gradeFor(end.spent, end.missionBaseline)
       const reward = Math.round(end.missionBaseline * GRADE_REWARD[grade])
@@ -334,11 +343,11 @@ export default function App() {
 
       {gs.screen === 'pvp' && (
         <Pvp party={gs.party} playerName={gs.playerName} rival={rivalSquad} joinCode={roomCode} clockColor={gs.clockColor}
-          onResult={(o) => setGs((s) => ({
+          onResult={(o) => { track('duel_result', { outcome: o }); setGs((s) => ({
             ...s,
             xp: s.xp + (o === 'win' ? 40 : o === 'draw' ? 20 : 10),
             wonBattles: o === 'win' ? s.wonBattles + 1 : s.wonBattles,
-          }))}
+          })) }}
           onDone={() => { setRivalSquad(null); setRoomCode(null); history.replaceState(null, '', location.pathname); set({ screen: 'world' }) }} />
       )}
 
