@@ -22,6 +22,8 @@ interface Props {
   playerName: string
   joinCode?: string | null
   onBack: () => void
+  /** chamado UMA vez por match completado (não dispara em desconexão no meio) */
+  onResult?: (outcome: 'win' | 'loss' | 'draw') => void
 }
 
 const SEEDED_ROLE_PALETTES = Object.fromEntries(
@@ -70,7 +72,7 @@ function isValidMatch(value: unknown): value is MatchStart {
   })
 }
 
-export function PvpLive({ party, playerName, joinCode, onBack }: Props) {
+export function PvpLive({ party, playerName, joinCode, onBack, onResult }: Props) {
   const [stage, setStage] = useState<Stage>('menu')
   const [roomCode, setRoomCode] = useState('')
   const [codeInput, setCodeInput] = useState(joinCode ?? '')
@@ -106,6 +108,9 @@ export function PvpLive({ party, playerName, joinCode, onBack }: Props) {
   const visualRoundRef = useRef<number | null>(null)
   const visualWatchdogRef = useRef<number | null>(null)
   const autoJoined = useRef(false)
+  const awardedRef = useRef(false)
+  const onResultRef = useRef(onResult)
+  onResultRef.current = onResult
 
   const domains = useMemo(() => (match ? deriveDomains(match.seed) : []), [match])
   const round = rounds.length
@@ -162,6 +167,7 @@ export function PvpLive({ party, playerName, joinCode, onBack }: Props) {
           return
         }
         chiptune.confirm()
+        awardedRef.current = false
         setMatch(e.match); setRounds([]); setMyPick(null); setRematchAsked(false); setRematchSent(false); setOppLeft(false)
         visualBusyRef.current = false
         pickLockedRef.current = false
@@ -217,7 +223,13 @@ export function PvpLive({ party, playerName, joinCode, onBack }: Props) {
           `${DOMAIN_INFO[r.domain].label}: ${agentById(m[m.you].squad[mine.idx].agentId).name} marcou ${mine.score}; `
           + `${agentById(m[m.you === 'a' ? 'b' : 'a'].squad[theirs.idx].agentId).name} marcou ${theirs.score}.`,
         )
-        if (final) { stageRef.current = 'ended'; setResultReady(false); setStage('ended') }
+        if (final) {
+          stageRef.current = 'ended'; setResultReady(false); setStage('ended')
+          if (!awardedRef.current) {
+            awardedRef.current = true
+            onResultRef.current?.(outcome)
+          }
+        }
         bridge.emit('pvp:reveal', reveal)
       }
       else if (e.t === 'rematch-ask') setRematchAsked(true)

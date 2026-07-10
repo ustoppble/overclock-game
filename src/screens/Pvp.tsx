@@ -14,9 +14,10 @@ interface Props {
   joinCode?: string | null
   clockColor?: string | null
   onDone: () => void
+  onResult?: (outcome: 'win' | 'loss' | 'draw') => void
 }
 
-export function Pvp({ party, playerName, rival: initialRival, joinCode, clockColor = null, onDone }: Props) {
+export function Pvp({ party, playerName, rival: initialRival, joinCode, clockColor = null, onDone, onResult }: Props) {
   // link de sala ou nada pendente → abre direto no AO VIVO; desafio por link → aba assíncrona
   const [mode, setMode] = useState<'live' | 'link'>(initialRival ? 'link' : 'live')
   const [rival, setRival] = useState<SquadCode | null>(initialRival)
@@ -62,7 +63,7 @@ export function Pvp({ party, playerName, rival: initialRival, joinCode, clockCol
     return (
       <div>
         {tabs}
-        <PvpLive party={party} playerName={playerName} joinCode={joinCode} onBack={onDone} />
+        <PvpLive party={party} playerName={playerName} joinCode={joinCode} onBack={onDone} onResult={onResult} />
       </div>
     )
   }

@@ -322,6 +322,11 @@ export default function App() {
 
       {gs.screen === 'pvp' && (
         <Pvp party={gs.party} playerName={gs.playerName} rival={rivalSquad} joinCode={roomCode} clockColor={gs.clockColor}
+          onResult={(o) => setGs((s) => ({
+            ...s,
+            xp: s.xp + (o === 'win' ? 40 : o === 'draw' ? 20 : 10),
+            wonBattles: o === 'win' ? s.wonBattles + 1 : s.wonBattles,
+          }))}
           onDone={() => { setRivalSquad(null); setRoomCode(null); history.replaceState(null, '', location.pathname); set({ screen: 'world' }) }} />
       )}
 
