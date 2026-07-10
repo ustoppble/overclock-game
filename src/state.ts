@@ -72,7 +72,19 @@ const SAVE_KEY = 'overclock-mon-save-v2'
 const TRANSIENT: Screen[] = ['battle', 'squad', 'victory', 'gameover', 'catalog', 'pvp', 'howto']
 
 export function saveGame(s: GameState) {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)) } catch { /* quota */ }
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(s))
+    localStorage.setItem(`${SAVE_KEY}:at`, String(Date.now()))
+  } catch { /* quota */ }
+}
+/** Sanitiza um save vindo de fora (localStorage ou nuvem) pro shape atual. */
+export function normalizeSave(s: GameState): GameState {
+  // telas transientes ou de versões antigas do save não sobrevivem a reload
+  const valid: Screen[] = ['title', 'world', 'finale']
+  const screen: Screen = valid.includes(s.screen) && !TRANSIENT.includes(s.screen) ? s.screen : 'world'
+  // saves de antes da criação de personagem: quem já jogou conta como criado
+  const created = s.created ?? (typeof s.wonBattles === 'number' && (s.wonBattles > 0 || (s.ownedAgents?.length ?? 0) > 0))
+  return { ...initialState, ...s, screen, created }
 }
 export function loadGame(): GameState | null {
   try {
@@ -80,12 +92,7 @@ export function loadGame(): GameState | null {
     if (!raw) return null
     const s = JSON.parse(raw) as GameState
     if (!s || typeof s.tokens !== 'number') return null
-    // telas transientes ou de versões antigas do save não sobrevivem a reload
-    const valid: Screen[] = ['title', 'world', 'finale']
-    const screen: Screen = valid.includes(s.screen) && !TRANSIENT.includes(s.screen) ? s.screen : 'world'
-    // saves de antes da criação de personagem: quem já jogou conta como criado
-    const created = s.created ?? (typeof s.wonBattles === 'number' && (s.wonBattles > 0 || (s.ownedAgents?.length ?? 0) > 0))
-    return { ...initialState, ...s, screen, created }
+    return normalizeSave(s)
   } catch { return null }
 }
 export function clearSave() {
