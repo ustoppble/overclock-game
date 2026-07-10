@@ -3,7 +3,8 @@ import { missionById, taskAsMission } from './data/missions'
 import { gradeFor, GRADE_XP, GRADE_REWARD, type Harness } from './engine/battle'
 import { parseHashChallenges, raceChallengeUrl, type SquadCode, type RaceCode } from './engine/pvp'
 import { parseRoomHash } from './engine/pvpLive'
-import { initialState, loadGame, saveGame, clearSave, formForXp, xpProgress, type GameState } from './state'
+import { initialState, loadGame, saveGame, clearSave, normalizeSave, formForXp, xpProgress, type GameState } from './state'
+import { pullCloudSave, queueCloudPush } from './engine/cloudSave'
 import { PhaserHost } from './phaser/PhaserHost'
 import { bridge, type BattleParams, type BattleEnd } from './phaser/bridge'
 import { chiptune } from './audio/chiptune'
@@ -45,7 +46,19 @@ export default function App() {
   const raceRef = useRef(raceRun)
   raceRef.current = raceRun
 
-  useEffect(() => { saveGame(gs) }, [gs])
+  useEffect(() => { saveGame(gs); queueCloudPush(gs) }, [gs])
+
+  // pull do save em nuvem no boot — nuvem só vence se for mais nova que o local
+  useEffect(() => {
+    void pullCloudSave().then((cloud) => {
+      if (!cloud || typeof cloud.tokens !== 'number') return
+      setGs((s) => {
+        // não sobrescrever partida em andamento (batalha/duelo) com estado remoto
+        if (s.screen === 'battle' || s.screen === 'pvp') return s
+        return normalizeSave(cloud)
+      })
+    })
+  }, [])
 
   // contexto vivo pras cenas Phaser
   bridge.ctx.badges = gs.badges
