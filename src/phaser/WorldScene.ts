@@ -4,6 +4,16 @@ import { WORLD, MAP_W, MAP_H, walkable, tileAt, encounterPool, ENCOUNTER_RATE, N
 import { makeTileset, makeSprites, makeMascotTextures, clockKey, TILE, T } from './textures'
 import { bridge } from './bridge'
 import { chiptune } from '../audio/chiptune'
+import type { WorldPlayer, Dir } from '../engine/worldLive'
+
+interface RemoteEntry {
+  sprite: Phaser.GameObjects.Sprite
+  label: Phaser.GameObjects.Text
+  x: number
+  y: number
+  name: string
+  hasSquad: boolean
+}
 
 const NPC_TINT: Record<string, number> = { a: 0x38bdf8, b: 0xfbbf24, c: 0xa78bfa, n: 0x6b7280, x: 0xef4444, y: 0x22c55e }
 
@@ -37,6 +47,12 @@ export class WorldScene extends Phaser.Scene {
   private dialogName = ''
   private pendingTrainer: 'x' | 'y' | null = null
   private idleFrame = 0
+  // multiplayer
+  private remotes = new Map<string, RemoteEntry>()
+  private challengeBox: Phaser.GameObjects.Container | null = null
+  private challengeFromId: string | null = null
+  private challengeTimer: Phaser.Time.TimerEvent | null = null
+  private bridgeOffs: Array<() => void> = []
 
   constructor() { super('World') }
 
@@ -116,10 +132,128 @@ export class WorldScene extends Phaser.Scene {
     this.wasd = this.input.keyboard!.addKeys('W,A,S,D,E') as Record<string, Phaser.Input.Keyboard.Key>
     this.input.keyboard!.on('keydown-E', () => this.interactOrAdvance())
     this.input.keyboard!.on('keydown-ENTER', () => this.interactOrAdvance())
+    this.input.keyboard!.on('keydown-X', () => this.onChallengeKey())
+    this.input.keyboard!.on('keydown-Z', () => this.onDeclineKey())
     this.input.keyboard!.on('keydown', () => chiptune.unlock())
     this.input.on('pointerdown', () => chiptune.unlock())
 
+    // multiplayer: React (useWorldLive) ⇄ cena via bridge
+    this.bridgeOffs = [
+      bridge.on('w:snapshot', (p) => (p as WorldPlayer[]).forEach((pl) => this.addRemote(pl))),
+      bridge.on('w:enter', (p) => this.addRemote(p as WorldPlayer)),
+      bridge.on('w:move', (p) => this.moveRemote(p as { id: string; x: number; y: number; dir: Dir; form: string })),
+      bridge.on('w:leave', (p) => this.removeRemote((p as { id: string }).id)),
+      bridge.on('w:challenged', (p) => this.openChallenge(p as { id: string; name: string })),
+      bridge.on('w:toast', (msg) => this.showToast(msg as string)),
+    ]
+    this.events.once('shutdown', () => {
+      this.bridgeOffs.forEach((off) => off())
+      this.bridgeOffs = []
+      this.remotes.clear()
+      this.challengeBox = null
+      this.challengeFromId = null
+    })
+    bridge.emit('w:scene-ready')
+
     chiptune.setTrack('world')
+  }
+
+  // ── multiplayer: jogadores remotos ─────────────────────────────────────────
+  private remoteLabel(name: string, form: string, hasSquad: boolean): string {
+    return `${name} · ${form}${hasSquad ? '' : ' · sem squad'}`
+  }
+
+  private addRemote(p: WorldPlayer) {
+    this.removeRemote(p.id)
+    const tx = p.x * TILE + TILE / 2, ty = p.y * TILE + TILE / 2 - 8
+    const sprite = this.add.sprite(tx, ty, clockKey(p.form, 'idle', 0))
+    sprite.setDisplaySize(46, 46).setDepth(9).setAlpha(0.95)
+    if (p.skin) {
+      try { sprite.setTint(Phaser.Display.Color.HexStringToColor(p.skin).color) } catch { /* skin inválida */ }
+    }
+    const label = this.add.text(tx, ty - 30, this.remoteLabel(p.name, p.form, p.hasSquad), {
+      fontFamily: 'monospace', fontSize: '9px', color: '#f5f5f4',
+      backgroundColor: 'rgba(10,8,16,0.8)', padding: { x: 4, y: 2 },
+    }).setOrigin(0.5).setDepth(9)
+    this.remotes.set(p.id, { sprite, label, x: p.x, y: p.y, name: p.name, hasSquad: p.hasSquad })
+  }
+
+  private moveRemote(m: { id: string; x: number; y: number; dir: Dir; form: string }) {
+    const r = this.remotes.get(m.id)
+    if (!r) return
+    r.x = m.x; r.y = m.y
+    r.sprite.setFlipX(m.dir === 'left')
+    r.sprite.setTexture(clockKey(m.form, 'idle', 0))
+    r.label.setText(this.remoteLabel(r.name, m.form, r.hasSquad))
+    const tx = m.x * TILE + TILE / 2, ty = m.y * TILE + TILE / 2 - 8
+    this.tweens.add({ targets: r.sprite, x: tx, y: ty, duration: 150, ease: 'linear' })
+    this.tweens.add({ targets: r.label, x: tx, y: ty - 30, duration: 150, ease: 'linear' })
+  }
+
+  private removeRemote(id: string) {
+    const r = this.remotes.get(id)
+    if (!r) return
+    r.sprite.destroy()
+    r.label.destroy()
+    this.remotes.delete(id)
+  }
+
+  // ── multiplayer: desafio 1x1 ───────────────────────────────────────────────
+  private onChallengeKey() {
+    if (this.challengeBox && this.challengeFromId) {
+      // aceitar o desafio recebido
+      const id = this.challengeFromId
+      this.closeChallenge()
+      chiptune.confirm()
+      bridge.emit('w:answer', { id, accept: true })
+      return
+    }
+    if (this.dialogBox || this.frozen) return
+    const f = this.facing()
+    for (const [id, r] of this.remotes) {
+      if (r.x !== f.x || r.y !== f.y) continue
+      if (!r.hasSquad) { chiptune.back(); this.showToast(`${r.name} não tem squad montado`); return }
+      chiptune.confirm()
+      bridge.emit('w:challenge', id)
+      this.showToast(`⚔ desafio enviado pra ${r.name}…`)
+      return
+    }
+  }
+
+  private onDeclineKey() {
+    if (!this.challengeBox || !this.challengeFromId) return
+    const id = this.challengeFromId
+    this.closeChallenge()
+    chiptune.back()
+    bridge.emit('w:answer', { id, accept: false })
+  }
+
+  private openChallenge(from: { id: string; name: string }) {
+    this.closeChallenge()
+    chiptune.encounter()
+    this.frozen = true
+    this.challengeFromId = from.id
+    const cam = this.cameras.main
+    const w = Math.min(420, cam.width - 60)
+    const box = this.add.container(cam.scrollX + (cam.width - w) / 2, cam.scrollY + cam.height / 2 - 60).setDepth(55)
+    const bg = this.add.rectangle(0, 0, w, 104, 0x0a0810, 0.97).setOrigin(0).setStrokeStyle(2, 0xef4444)
+    const title = this.add.text(w / 2, 20, `「${from.name}」 te desafia!`, { fontFamily: 'monospace', fontSize: '15px', color: '#ef4444', fontStyle: 'bold' }).setOrigin(0.5)
+    const hint = this.add.text(w / 2, 48, 'X ▸ ACEITAR   ·   Z ▸ RECUSAR', { fontFamily: 'monospace', fontSize: '12px', color: '#f5f5f4' }).setOrigin(0.5)
+    const barBg = this.add.rectangle(14, 78, w - 28, 8, 0x292524).setOrigin(0)
+    const bar = this.add.rectangle(14, 78, w - 28, 8, 0xef4444).setOrigin(0)
+    box.add([bg, title, hint, barBg, bar])
+    this.challengeBox = box
+    this.tweens.add({ targets: bar, scaleX: 0, duration: 15_000, ease: 'linear' })
+    this.challengeTimer = this.time.delayedCall(15_000, () => this.closeChallenge())
+  }
+
+  private closeChallenge() {
+    this.challengeTimer?.remove()
+    this.challengeTimer = null
+    this.challengeBox?.destroy()
+    this.challengeBox = null
+    this.challengeFromId = null
+    if (!this.dialogBox) this.frozen = false
   }
 
   /** Detecta cada prédio pelo char da porta e desenha a fachada inteira num canvas só. */
@@ -315,7 +449,7 @@ export class WorldScene extends Phaser.Scene {
         this.moving = false
         stepAnim.remove()
         this.player.setTexture(clockKey(bridge.ctx.form, 'idle', 0))
-        bridge.emit('move', { x: nx, y: ny })
+        bridge.emit('move', { x: nx, y: ny, dir })
         this.enterTile(tileAt(nx, ny))
       },
     })
