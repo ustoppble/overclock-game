@@ -1,6 +1,6 @@
 /** Mundo aberto em Phaser — tilemap, movimento em grid com tween, câmera, encontros. */
 import Phaser from 'phaser'
-import { WORLD, MAP_W, MAP_H, walkable, tileAt, encounterPool, ENCOUNTER_RATE, NPCS, TRAINERS } from '../world/worldMap'
+import { WORLD, MAP_W, MAP_H, walkable, tileAt, encounterPool, ENCOUNTER_RATE, NPCS, TRAINERS, GYM_BOSSES } from '../world/worldMap'
 import { makeTileset, makeSprites, makeMascotTextures, clockKey, TILE, T } from './textures'
 import { bridge } from './bridge'
 import { chiptune } from '../audio/chiptune'
@@ -405,9 +405,16 @@ export class WorldScene extends Phaser.Scene {
 
   private enterTile(ch: string) {
     if (/[1-6]/.test(ch)) {
-      // v1 multiplayer: ginásios fechados — o mundo é caça + duelo 1x1
-      chiptune.back()
-      this.showToast('🔒 GINÁSIO — EM BREVE')
+      // ginásios = as 5 receitas do arsenal + GO-LIVE (porta n exige n-1 insígnias)
+      const gym = GYM_BOSSES[ch]
+      const need = gym.chapter - 1
+      if (bridge.ctx.badges.length >= need) {
+        chiptune.confirm()
+        this.toBattleFx(() => bridge.emit('gym', ch))
+      } else {
+        chiptune.back()
+        this.showToast(`🔒 exige ${need} insígnia${need > 1 ? 's' : ''} — você tem ${bridge.ctx.badges.length}`)
+      }
       return
     }
     if (ch === 'C') { chiptune.confirm(); this.toBattleFx(() => bridge.emit('catalog')); return }
