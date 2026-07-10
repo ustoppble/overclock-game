@@ -35,6 +35,14 @@ const server = createServer((req, res) => {
   try {
     let path = decodeURIComponent((req.url || '/').split('?')[0])
     if (path.startsWith('/game/') || path === '/game') path = path.slice(5) || '/'
+    if (path === '/stats') {
+      return res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-cache' }).end(JSON.stringify({
+        online: world.size,
+        players: [...world.values()].map((p) => ({ name: p.name, form: p.form, x: p.x, y: p.y, hasSquad: p.hasSquad })),
+        duelRooms: [...rooms.values()].filter((r) => r.duo).length,
+        rooms: rooms.size,
+      }))
+    }
     if (path === '/' || path === '') return res.writeHead(200, { 'content-type': MIME['.html'] }).end(INDEX())
     const file = normalize(join(DIST, path))
     if (!file.startsWith(DIST)) return res.writeHead(403).end()

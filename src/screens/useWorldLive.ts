@@ -6,6 +6,7 @@
 import { useEffect, useRef } from 'react'
 import { WorldClient, type Dir, type WorldEvent, type WorldPlayer } from '../engine/worldLive'
 import { bridge } from '../phaser/bridge'
+import { track } from '../engine/analytics'
 
 interface Opts {
   active: boolean
@@ -43,9 +44,9 @@ export function useWorldLive({ active, name, skin, form, hasSquad, pos, onMatch 
         bridge.emit('w:move', e)
       }
       else if (e.t === 'wleave') { players.delete(e.id); bridge.emit('w:leave', { id: e.id }) }
-      else if (e.t === 'wchallenged') bridge.emit('w:challenged', { id: e.from.id, name: e.from.name })
+      else if (e.t === 'wchallenged') { track('challenge_received'); bridge.emit('w:challenged', { id: e.from.id, name: e.from.name }) }
       else if (e.t === 'wdeclined') bridge.emit('w:toast', '✖ desafio recusado (ou expirou)')
-      else if (e.t === 'wmatch') onMatchRef.current(e.code)
+      else if (e.t === 'wmatch') { track('duel_matched'); onMatchRef.current(e.code) }
       else if (e.t === 'err') bridge.emit('w:toast', `⚠ ${e.msg}`)
     })
     client.connect()
@@ -57,7 +58,7 @@ export function useWorldLive({ active, name, skin, form, hasSquad, pos, onMatch 
         const m = p as { x: number; y: number; dir?: Dir }
         client.move(m.x, m.y, m.dir ?? 'down', formRef.current)
       }),
-      bridge.on('w:challenge', (id) => client.challenge(id as string)),
+      bridge.on('w:challenge', (id) => { track('challenge_sent'); client.challenge(id as string) }),
       bridge.on('w:answer', (p) => {
         const a = p as { id: string; accept: boolean }
         if (a.accept) client.accept(a.id)
