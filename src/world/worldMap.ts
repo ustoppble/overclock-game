@@ -122,10 +122,10 @@ export const TRAINERS: Record<string, { name: string; taskId: string; intro: str
 
 /** Ginásios: porta n exige n-1 insígnias. Boss = último desafio do capítulo n. */
 export const GYM_BOSSES: Record<string, { chapter: number; taskId: string; leader: string }> = {
-  '1': { chapter: 1, taskId: 'rename-golem', leader: 'oc-magpie, a gralha — GINÁSIO CINEMA SITE' },
-  '2': { chapter: 2, taskId: 'landing', leader: 'oc-mason, o pedreiro-mestre — GINÁSIO APP FACTORY' },
-  '3': { chapter: 3, taskId: 'heisenbug', leader: 'oc-bloodhound, o farejador — GINÁSIO SAAS 10K' },
-  '4': { chapter: 4, taskId: 'refactor-golem', leader: 'oc-marauder, o scout — GINÁSIO AUTOPILOT' },
-  '5': { chapter: 5, taskId: 'legacy', leader: 'oc-arcade, o mestre do juice — GINÁSIO ARCADE' },
-  '6': { chapter: 6, taskId: 'hallucination-prime', leader: 'oc-inquisitor — GO-LIVE, a elite' },
+  '1': { chapter: 1, taskId: 'rename-golem', leader: 'oc-design-scout — GINÁSIO CINEMA SITE' },
+  '2': { chapter: 2, taskId: 'landing', leader: 'backend-architect — GINÁSIO APP FACTORY' },
+  '3': { chapter: 3, taskId: 'heisenbug', leader: 'security-auditor — GINÁSIO SAAS 10K' },
+  '4': { chapter: 4, taskId: 'refactor-golem', leader: 'oc-browser, o scout das fontes — GINÁSIO AUTOPILOT' },
+  '5': { chapter: 5, taskId: 'legacy', leader: 'oc-qa, o bot que joga e grava — GINÁSIO ARCADE' },
+  '6': { chapter: 6, taskId: 'hallucination-prime', leader: 'code-reviewer — GO-LIVE, a elite' },
 }
