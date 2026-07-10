@@ -8,6 +8,25 @@ import type { BattleParams } from './bridge'
 
 let game: Phaser.Game | null = null
 
+function bindScaleParent(gameInstance: Phaser.Game, parent: HTMLElement) {
+  if (gameInstance.canvas && gameInstance.canvas.parentElement !== parent) {
+    parent.appendChild(gameInstance.canvas)
+  }
+
+  if (!gameInstance.isBooted || !gameInstance.canvas || !parent.isConnected) return
+
+  const bounds = parent.getBoundingClientRect()
+  if (bounds.width <= 0 || bounds.height <= 0) return
+
+  // O Phaser guarda a referência do primeiro parent recebido. Como cada tela
+  // React monta um PhaserHost novo, mover apenas o canvas deixa o ScaleManager
+  // medindo o host antigo (0x0 depois do unmount).
+  gameInstance.scale.parent = parent
+  gameInstance.scale.parentIsWindow = false
+  gameInstance.scale.getParentBounds()
+  gameInstance.scale.refresh()
+}
+
 function ensureGame(parent: HTMLElement): Phaser.Game {
   if (game && !game.isBooted) { game.destroy(true); game = null }
   if (!game) {
@@ -22,8 +41,8 @@ function ensureGame(parent: HTMLElement): Phaser.Game {
       scene: [WorldScene, BattleScene, PvpArenaScene],
     })
     ;(window as unknown as { __game?: Phaser.Game }).__game = game
-  } else if (game.canvas && game.canvas.parentElement !== parent) {
-    parent.appendChild(game.canvas)
+  } else {
+    bindScaleParent(game, parent)
   }
   return game
 }
@@ -39,8 +58,21 @@ export function PhaserHost({ mode, battleParams, pvpParams }: PhaserHostProps) {
 
   useEffect(() => {
     if (!ref.current) return
-    const g = ensureGame(ref.current)
+    const parent = ref.current
+    const g = ensureGame(parent)
+    let resizeFrame = 0
+
+    const refreshScale = () => bindScaleParent(g, parent)
+    const queueScaleRefresh = () => {
+      cancelAnimationFrame(resizeFrame)
+      resizeFrame = requestAnimationFrame(refreshScale)
+    }
+
+    const resizeObserver = new ResizeObserver(queueScaleRefresh)
+    resizeObserver.observe(parent)
+
     const switchScene = () => {
+      refreshScale()
       const world = g.scene.getScene('World')
       const battle = g.scene.getScene('Battle')
       const pvp = g.scene.getScene('PvpArena')
@@ -61,10 +93,13 @@ export function PhaserHost({ mode, battleParams, pvpParams }: PhaserHostProps) {
         if (g.scene.isActive('World')) g.scene.getScene('World').scene.restart()
         else g.scene.start('World')
       }
+      queueScaleRefresh()
     }
     if (g.isBooted) switchScene()
     else g.events.once('ready', switchScene)
     return () => {
+      cancelAnimationFrame(resizeFrame)
+      resizeObserver.disconnect()
       g.events.off('ready', switchScene)
       if (mode === 'pvp' && g.isBooted && g.scene.isActive('PvpArena')) g.scene.stop('PvpArena')
     }
