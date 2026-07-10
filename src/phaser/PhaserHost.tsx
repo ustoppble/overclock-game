@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import Phaser from 'phaser'
 import { WorldScene } from './WorldScene'
 import { BattleScene } from './BattleScene'
+import { PvpArenaScene, type PvpArenaParams } from './PvpArenaScene'
 import type { BattleParams } from './bridge'
 
 let game: Phaser.Game | null = null
@@ -18,7 +19,7 @@ function ensureGame(parent: HTMLElement): Phaser.Game {
       backgroundColor: '#0a0810',
       pixelArt: true,
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-      scene: [WorldScene, BattleScene],
+      scene: [WorldScene, BattleScene, PvpArenaScene],
     })
     ;(window as unknown as { __game?: Phaser.Game }).__game = game
   } else if (game.canvas && game.canvas.parentElement !== parent) {
@@ -27,7 +28,13 @@ function ensureGame(parent: HTMLElement): Phaser.Game {
   return game
 }
 
-export function PhaserHost({ mode, battleParams }: { mode: 'world' | 'battle'; battleParams?: BattleParams | null }) {
+interface PhaserHostProps {
+  mode: 'world' | 'battle' | 'pvp'
+  battleParams?: BattleParams | null
+  pvpParams?: PvpArenaParams | null
+}
+
+export function PhaserHost({ mode, battleParams, pvpParams }: PhaserHostProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -36,12 +43,20 @@ export function PhaserHost({ mode, battleParams }: { mode: 'world' | 'battle'; b
     const switchScene = () => {
       const world = g.scene.getScene('World')
       const battle = g.scene.getScene('Battle')
-      if (mode === 'battle' && battleParams) {
+      const pvp = g.scene.getScene('PvpArena')
+      if (mode === 'pvp' && pvpParams) {
         if (world && g.scene.isActive('World')) g.scene.stop('World')
+        if (battle && g.scene.isActive('Battle')) g.scene.stop('Battle')
+        if (pvp && g.scene.isActive('PvpArena')) g.scene.stop('PvpArena')
+        g.scene.start('PvpArena', pvpParams)
+      } else if (mode === 'battle' && battleParams) {
+        if (world && g.scene.isActive('World')) g.scene.stop('World')
+        if (pvp && g.scene.isActive('PvpArena')) g.scene.stop('PvpArena')
         if (battle && g.scene.isActive('Battle')) g.scene.stop('Battle')
         g.scene.start('Battle', battleParams)
       } else {
         if (battle && g.scene.isActive('Battle')) g.scene.stop('Battle')
+        if (pvp && g.scene.isActive('PvpArena')) g.scene.stop('PvpArena')
         // sempre (re)inicia o mundo: re-lê posição, forma e COR do clockinho do bridge.ctx
         if (g.scene.isActive('World')) g.scene.getScene('World').scene.restart()
         else g.scene.start('World')
@@ -49,7 +64,11 @@ export function PhaserHost({ mode, battleParams }: { mode: 'world' | 'battle'; b
     }
     if (g.isBooted) switchScene()
     else g.events.once('ready', switchScene)
-  }, [mode, battleParams])
+    return () => {
+      g.events.off('ready', switchScene)
+      if (mode === 'pvp' && g.isBooted && g.scene.isActive('PvpArena')) g.scene.stop('PvpArena')
+    }
+  }, [mode, battleParams, pvpParams])
 
   return <div ref={ref} className="phaser-host" />
 }
