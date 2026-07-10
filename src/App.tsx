@@ -14,6 +14,7 @@ import { CreateCharacter } from './screens/CreateCharacter'
 import { Pvp } from './screens/Pvp'
 import { MascotWidget } from './screens/MascotWidget'
 import { HowToPlay } from './screens/HowToPlay'
+import { useWorldLive } from './screens/useWorldLive'
 
 /** Tutoriais dos treinadores — squad de 1 com mismatch forçado, pra lição doer no bolso. */
 const FORCED: Record<string, Harness> = {
@@ -54,6 +55,21 @@ export default function App() {
   bridge.ctx.form = formForXp(gs.xp)
   bridge.ctx.clockColor = gs.clockColor
 
+  // presença multiplayer no mundo aberto (desafio 1x1 desemboca no PvP por sala duo)
+  useWorldLive({
+    active: gs.screen === 'world' && gs.created,
+    name: gs.playerName,
+    skin: gs.clockColor,
+    form: formForXp(gs.xp),
+    hasSquad: gs.party.length > 0,
+    pos: gs.worldPos,
+    onMatch: (code) => {
+      setRivalSquad(null)
+      setRoomCode(code)
+      setGs((s) => ({ ...s, screen: 'pvp' }))
+    },
+  })
+
   // parâmetros comuns de batalha: party + reservas invocáveis + passivo da forma
   const commonBattle = () => {
     const s = gsRef.current
@@ -66,7 +82,10 @@ export default function App() {
   // ── eventos do mundo Phaser → UMA batalha só (estilo Chrono Trigger) ──────
   useEffect(() => {
     const offs = [
-      bridge.on('move', (p) => setGs((s) => ({ ...s, worldPos: p as { x: number; y: number } }))),
+      bridge.on('move', (p) => {
+        const { x, y } = p as { x: number; y: number }
+        setGs((s) => ({ ...s, worldPos: { x, y } }))
+      }),
       bridge.on('encounter', (taskId) => {
         setPendingTrainer(null)
         setBattleParams({ taskId: taskId as string, ...commonBattle() })
