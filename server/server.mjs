@@ -67,6 +67,38 @@ const send = (ws, obj) => { if (ws && ws.readyState === 1) ws.send(JSON.stringif
 const validSquad = (sq) => Array.isArray(sq) && sq.length >= 1 && sq.length <= 4 &&
   sq.every((h) => h && typeof h.agentId === 'string' && typeof h.modelId === 'string' && typeof h.effort === 'string')
 
+// ── mundo aberto: presença + desafio 1x1 ────────────────────────────────────
+const WORLD_MAX_X = 45
+const WORLD_MAX_Y = 31
+const CHALLENGE_TTL_MS = 15_000
+const DIRS = new Set(['up', 'down', 'left', 'right'])
+let nextWorldId = 1
+const world = new Map() // id → { ws, name, x, y, dir, skin, form, hasSquad }
+const challenges = new Map() // targetId → { fromId, timer }
+
+const clampInt = (v, min, max, fallback) => {
+  const n = Number(v)
+  return Number.isInteger(n) ? Math.min(max, Math.max(min, n)) : fallback
+}
+const wpublic = (id, p) => ({ id, name: p.name, x: p.x, y: p.y, dir: p.dir, skin: p.skin, form: p.form, hasSquad: p.hasSquad })
+const wbroadcast = (obj, exceptId) => {
+  for (const [id, p] of world) if (id !== exceptId) send(p.ws, obj)
+}
+const dropChallengesOf = (id) => {
+  for (const [target, ch] of challenges) {
+    if (target !== id && ch.fromId !== id) continue
+    clearTimeout(ch.timer)
+    challenges.delete(target)
+    const other = target === id ? ch.fromId : target
+    send(world.get(other)?.ws, { t: 'wdeclined', id })
+  }
+}
+const inChallenge = (id) => {
+  if (challenges.has(id)) return true
+  for (const ch of challenges.values()) if (ch.fromId === id) return true
+  return false
+}
+
 function startMatch(room) {
   const seed = newSeed()
   room.picks = [{}, {}, {}, {}, {}, {}, {}]
@@ -109,6 +141,13 @@ wss.on('connection', (ws) => {
       if (!r) return send(ws, { t: 'err', msg: 'sala não existe (ou expirou)' })
       if (r.b) return send(ws, { t: 'err', msg: 'sala cheia' })
       if (!validSquad(m.squad)) return send(ws, { t: 'err', msg: 'squad inválido' })
+      // sala duo (desafio de mundo): primeiro join vira o lado 'a'
+      if (r.duo && !r.a) {
+        r.a = { ws, name: String(m.name || 'Duelista').slice(0, 24), squad: m.squad }
+        ws.roomCode = code
+        ws.side = 'a'
+        return
+      }
       r.b = { ws, name: String(m.name || 'Desafiante').slice(0, 24), squad: m.squad }
       ws.roomCode = code
       ws.side = 'b'
@@ -132,6 +171,80 @@ wss.on('connection', (ws) => {
       return
     }
 
+    // ── mundo aberto ─────────────────────────────────────────────────────────
+    if (m.t === 'wjoin') {
+      const id = ws.worldId ?? `w${nextWorldId++}`
+      ws.worldId = id
+      const p = {
+        ws,
+        name: String(m.name || 'Orquestrador').slice(0, 24),
+        x: clampInt(m.x, 0, WORLD_MAX_X, 20),
+        y: clampInt(m.y, 0, WORLD_MAX_Y, 18),
+        dir: 'down',
+        skin: typeof m.skin === 'string' ? m.skin.slice(0, 9) : null,
+        form: String(m.form || 'base').slice(0, 12),
+        hasSquad: !!m.hasSquad,
+      }
+      world.set(id, p)
+      send(ws, { t: 'wstate', you: id, players: [...world].filter(([pid]) => pid !== id).map(([pid, pp]) => wpublic(pid, pp)) })
+      wbroadcast({ t: 'wenter', player: wpublic(id, p) }, id)
+      return
+    }
+
+    if (m.t === 'wmove' && ws.worldId && world.has(ws.worldId)) {
+      const now = Date.now()
+      if (ws.lastMoveAt && now - ws.lastMoveAt < 100) return
+      ws.lastMoveAt = now
+      const p = world.get(ws.worldId)
+      p.x = clampInt(m.x, 0, WORLD_MAX_X, p.x)
+      p.y = clampInt(m.y, 0, WORLD_MAX_Y, p.y)
+      if (DIRS.has(m.dir)) p.dir = m.dir
+      if (typeof m.form === 'string') p.form = m.form.slice(0, 12)
+      wbroadcast({ t: 'wmove', id: ws.worldId, x: p.x, y: p.y, dir: p.dir, form: p.form }, ws.worldId)
+      return
+    }
+
+    if (m.t === 'wchallenge' && ws.worldId) {
+      const me = world.get(ws.worldId)
+      const to = String(m.to || '')
+      const target = world.get(to)
+      if (!me || !target || to === ws.worldId) return send(ws, { t: 'err', msg: 'alvo indisponível' })
+      if (!me.hasSquad || !target.hasSquad) return send(ws, { t: 'err', msg: 'os dois precisam de squad montado' })
+      if (inChallenge(ws.worldId) || inChallenge(to)) return send(ws, { t: 'err', msg: 'desafio em andamento' })
+      const timer = setTimeout(() => {
+        challenges.delete(to)
+        send(me.ws, { t: 'wdeclined', id: to })
+      }, CHALLENGE_TTL_MS)
+      challenges.set(to, { fromId: ws.worldId, timer })
+      send(target.ws, { t: 'wchallenged', from: { id: ws.worldId, name: me.name } })
+      send(ws, { t: 'wchallenge-sent', to })
+      return
+    }
+
+    if (m.t === 'waccept' && ws.worldId) {
+      const ch = challenges.get(ws.worldId)
+      if (!ch || ch.fromId !== String(m.to || '')) return
+      clearTimeout(ch.timer)
+      challenges.delete(ws.worldId)
+      const challenger = world.get(ch.fromId)
+      if (!challenger) return send(ws, { t: 'err', msg: 'desafiante saiu' })
+      const code = newCode()
+      if (!code) return send(ws, { t: 'err', msg: 'servidor lotado, tenta de novo' })
+      rooms.set(code, { duo: true, a: null, b: null, createdAt: Date.now() })
+      send(challenger.ws, { t: 'wmatch', code })
+      send(ws, { t: 'wmatch', code })
+      return
+    }
+
+    if (m.t === 'wdecline' && ws.worldId) {
+      const ch = challenges.get(ws.worldId)
+      if (!ch) return
+      clearTimeout(ch.timer)
+      challenges.delete(ws.worldId)
+      send(world.get(ch.fromId)?.ws, { t: 'wdeclined', id: ws.worldId })
+      return
+    }
+
     if (m.t === 'rematch' && room && room.b) {
       room.rematch.add(ws.side)
       if (room.rematch.size === 2) startMatch(room)
@@ -141,6 +254,11 @@ wss.on('connection', (ws) => {
   })
 
   ws.on('close', () => {
+    if (ws.worldId && world.has(ws.worldId)) {
+      world.delete(ws.worldId)
+      dropChallengesOf(ws.worldId)
+      wbroadcast({ t: 'wleave', id: ws.worldId })
+    }
     const room = ws.roomCode ? rooms.get(ws.roomCode) : null
     if (!room) return
     const other = ws.side === 'a' ? room.b : room.a

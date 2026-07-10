@@ -14,7 +14,7 @@ import { agentById } from '../data/agents'
 import type { Harness } from './battle'
 
 export const ROUNDS = 7
-export const PICK_SECONDS = 20
+export const PICK_SECONDS = 15
 export const RATE_LIMIT_MULT = 0.35
 
 // ── RNG determinístico ───────────────────────────────────────────────────────
