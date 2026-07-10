@@ -41,11 +41,19 @@ Regras servidor:
 - Sem party: entra no mundo normalmente, mas não desafia nem é desafiável (label indica "sem squad").
 
 ### XP / level via duelo
-- Simulação determinística = mesmo resultado nos 2 clientes; cada cliente aplica o próprio XP local: vitória +40, derrota +10.
+- Simulação determinística = mesmo resultado nos 2 clientes; cada cliente aplica o próprio XP local: vitória +40, empate +20, derrota +10. Só em match completado (desconexão no meio não premia).
 - XP alimenta a form ladder existente (`formForXp`); forma nova propaga no próximo `wmove`/`wjoin`.
+
+### Ritmo
+- `PICK_SECONDS` cai de 20 → **15** (única constante; matemática do duelo intocada).
 
 ## Fora de escopo (YAGNI)
 Chat, colisão entre players, persistência de posição no servidor, sharding/instâncias, espectador, anti-cheat além da validação de payload, ranking.
+
+## Roadmap pós-v1 (registrado, não implementar agora)
+- **v2**: form bonus no duelo PvP (+3%/estágio, servidor carrega `form` no `start`) + histórico de picks do oponente na UI do match.
+- **v3**: vencedor rouba fração de tokens do perdedor (5%, cap 200) + streak de 3 vitórias = aura no sprite do mundo.
+- **v4**: effort-aposta por rodada (gasta tokens do save) + ranking semanal em memória no servidor.
 
 ## Riscos aceitos
 - Broadcast O(n²) em movimento — ok até ~50 players simultâneos.
